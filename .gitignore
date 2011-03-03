@@ -1,0 +1,6 @@
+*.swp
+*~
+Info.plist
+*.app
+*.xcodeproj
+build/
