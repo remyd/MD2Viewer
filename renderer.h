@@ -28,6 +28,11 @@ public slots:
 	void setXRotation(int angle);
 	void setYRotation(int angle);
 	void setZRotation(int angle);
+	void leftTranslation();
+	void rightTranslation();
+	void upTranslation();
+	void downTranslation();
+	void centerScene();
 	void setMouseBehavior(int behavior);
 	void setTypeRenderer(int renderer);
 	void updateScaleFactorModel(int scaleFactor);

@@ -1,5 +1,6 @@
 #include <QAction>
 #include <QApplication>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QVBoxLayout>
@@ -117,26 +118,24 @@ QMenuBar* Window::createMenuBar() {
 QGroupBox* Window::createGroupBoxTranslation() {
 	QGroupBox* translationGroupBox = new QGroupBox("Translations");
 	
-	/* Create the sliders */
-	xTransSlider = new QSlider(Qt::Horizontal);
-	xTransSlider->setRange(-100, 100);
-	yTransSlider = new QSlider(Qt::Horizontal);
-	yTransSlider->setRange(-100, 100);
-	
-	/* Create the labels for the slider */
-	QLabel* xTransLabel = new QLabel("Among X");
-	QLabel* yTransLabel = new QLabel("Among Y");
+	/* Create the button */
+	leftButton = new QPushButton("<");
+	rightButton = new QPushButton(">");
+	upButton = new QPushButton("^");
+	downButton = new QPushButton("v");
+	centerButton = new QPushButton("o");
 	
 	/* Create the layout of the group box */
-	QVBoxLayout* vbox = new QVBoxLayout();
+	QGridLayout* gridBox = new QGridLayout();
 	
-	/* Add the labels and the sliders to the layout */
-	vbox->addWidget(xTransLabel);
-	vbox->addWidget(xTransSlider);
-	vbox->addWidget(yTransLabel);
-	vbox->addWidget(yTransSlider);
+	/* Add the buttons to the layout */
+	gridBox->addWidget(leftButton, 1, 0);
+	gridBox->addWidget(rightButton, 1, 2);
+	gridBox->addWidget(upButton, 0, 1);
+	gridBox->addWidget(downButton, 2, 1);
+	gridBox->addWidget(centerButton, 1, 1);
 	
-	translationGroupBox->setLayout(vbox);
+	translationGroupBox->setLayout(gridBox);
 	return translationGroupBox;
 }
 
@@ -186,6 +185,13 @@ void Window::connectEvents() {
 	/* Scale factor */
 	connect(scaleSpinBox, SIGNAL(valueChanged(int)), renderer, SLOT(updateScaleFactorModel(int)));
 	connect(renderer, SIGNAL(scaleFactorChanged(int)), scaleSpinBox, SLOT(setValue(int)));
+	
+	/* Translation */
+	connect(leftButton, SIGNAL(clicked()), renderer, SLOT(leftTranslation()));
+	connect(rightButton, SIGNAL(clicked()), renderer, SLOT(rightTranslation()));
+	connect(upButton, SIGNAL(clicked()), renderer, SLOT(upTranslation()));
+	connect(downButton, SIGNAL(clicked()), renderer, SLOT(downTranslation()));
+	connect(centerButton, SIGNAL(clicked()), renderer, SLOT(centerScene()));
 	
 	/* Rotations */
 	connect(xRotSlider, SIGNAL(valueChanged(int)), renderer, SLOT(setXRotation(int)));

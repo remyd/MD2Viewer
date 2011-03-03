@@ -1,6 +1,8 @@
 *.swp
 *~
+*.o
 Info.plist
 *.app
 *.xcodeproj
 build/
+moc_renderer*

@@ -5,6 +5,7 @@
 #include <QGroupBox>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
 #include <QWidget>
@@ -23,8 +24,11 @@ public slots:
 private:
 	Renderer* renderer;
 	QComboBox* mouseComboBox;
-	QSlider* xTransSlider;
-	QSlider* yTransSlider;
+	QPushButton* leftButton;
+	QPushButton* rightButton;
+	QPushButton* upButton;
+	QPushButton* downButton;
+	QPushButton* centerButton;
 	QSlider* xRotSlider;
 	QSlider* yRotSlider;
 	QSlider* zRotSlider;

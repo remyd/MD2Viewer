@@ -298,6 +298,36 @@ void Renderer::setZRotation(int angle) {
 	updateGL();
 }
 
+/** Translate the scene to the left side */
+void Renderer::leftTranslation() {
+	modelTranslation.x = modelTranslation.x - 0.1;
+	updateGL();
+}
+
+/** Translate the scene to the right side */
+void Renderer::rightTranslation() {
+	modelTranslation.x = modelTranslation.x + 0.1;
+	updateGL();
+}
+
+/** Translate the scene to the up side */
+void Renderer::upTranslation() {
+	modelTranslation.y = modelTranslation.y + 0.1;
+	updateGL();
+}
+
+/** Translate the scene to the down side */
+void Renderer::downTranslation() {
+	modelTranslation.y = modelTranslation.y - 0.1;
+	updateGL();
+}
+
+/** Center the scene */
+void Renderer::centerScene() {
+	modelTranslation = Vector3d(0, 0, 0);
+	updateGL();
+}
+
 /**
  * Modify the current renderer and set-up openGL consequently
  * @param renderer New renderer
