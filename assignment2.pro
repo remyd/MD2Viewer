@@ -14,9 +14,11 @@ HEADERS +=	main.h \
 			renderer.h \
 			md2.h \
 			vector3d.h \
+			pcx.h \
 
 SOURCES +=	main.cpp \
 			window.cpp \
 			renderer.cpp \
 			md2.cpp \
 			vector3d.cpp \
+			pcx.cpp \

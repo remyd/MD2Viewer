@@ -96,13 +96,16 @@ QMenuBar* Window::createMenuBar() {
 	
 	/* Create the file menu */
 	QMenu* fileMenu = new QMenu("&File", this);
-	QAction* loadAction = new QAction("&Load the model", this);
-	fileMenu->addAction(loadAction);
+	QAction* loadModelAction = new QAction("&Load MD2 model", this);
+	fileMenu->addAction(loadModelAction);
+	QAction* loadTexModelAction = new QAction("&Load model texture", this);
+	fileMenu->addAction(loadTexModelAction);
 	QAction* quitAction = new QAction("&Quit", this);
 	fileMenu->addAction(quitAction);
 	
 	/* Connect the signal of the menu */
-	connect(loadAction, SIGNAL(triggered()), renderer, SLOT(openMD2Model()));
+	connect(loadModelAction, SIGNAL(triggered()), renderer, SLOT(openMD2Model()));
+	connect(loadTexModelAction, SIGNAL(triggered()), renderer, SLOT(openTextureModel()));
 	connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
 	
 	/* Add the different menus to the menu bar */

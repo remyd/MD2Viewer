@@ -25,6 +25,7 @@ public:
 
 public slots:
 	void openMD2Model();
+	void openTextureModel();
 	void setXRotation(int angle);
 	void setYRotation(int angle);
 	void setZRotation(int angle);
@@ -45,15 +46,18 @@ signals:
 
 protected:
 	void initializeGL();
+	void initLights();
 	void paintGL();
 	void resizeGL(int width, int height);
 	void computeNormVectors(MD2* md2, vector<Vector3d>* normFaceVect, Vector3d* normVertexVect);
 	Vector3d computeMouseWorldPosition(GLfloat x, GLfloat y, GLfloat z);
+	void renderFrame(int n);
 	void mousePressEvent(QMouseEvent* event);
 	void mouseMoveEvent(QMouseEvent* event);
 	
 private:
 	QString filenameModel;
+	QString filenameTextureModel;
 	
 	int width, height;
 	
@@ -75,6 +79,12 @@ private:
 	Vector3d* normVertexModel;
 	Vector3d oldMouseWorldPosition;
 	Vector3d modelTranslation;
+	
+	bool textured;
+	unsigned char* pixels;
+	int widthModelTexture;
+	int heightModelTexture;
+	GLuint modelTexture;
 };
 
 #endif

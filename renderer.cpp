@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QtOpenGl>
 
+#include "pcx.h"
 #include "renderer.h"
 
 using namespace std;
@@ -26,6 +27,9 @@ Renderer::Renderer(QWidget* parent) : QGLWidget(parent) {
 	md2Model = NULL;
 	normVertexModel = NULL;
 	modelTranslation = Vector3d(0, 0, 0);
+	
+	textured = false;
+	pixels = NULL;
 }
 
 /** Public destructor */
@@ -37,21 +41,11 @@ Renderer::~Renderer() {
  * @param filenameModel File name of the model
  */
 void Renderer::openMD2Model() {
-	this->filenameModel = QFileDialog::getOpenFileName(this, "Choose a MD2 model", QDir::currentPath());
+	filenameModel = QFileDialog::getOpenFileName(this, "Choose a MD2 model", QDir::currentPath());
 	
 	/* If the user clicked on Cancel */
-	if (this->filenameModel.isNull()) {
+	if (filenameModel.isNull()) {
 		return;
-	}
-	
-	/* Free the memory */
-	if (md2Model != NULL) {
-		delete md2Model;
-		md2Model = NULL;
-	}
-	if (normVertexModel != NULL) {
-		delete [] normVertexModel;
-		normVertexModel = NULL;
 	}
 	
 	/* Load the model */
@@ -60,12 +54,52 @@ void Renderer::openMD2Model() {
 		QMessageBox::critical(this, "MD2 model", "Cannot load the MD2 model");
 		md2Model = NULL;
 	} else {
-		initialScaleFactorModel = (float) 10 / qMax(md2Model->skin_height, md2Model->skin_width) - 0.01;
-		scaleFactorModel = initialScaleFactorModel;
+		// initialScaleFactorModel = (float) 10 / qMax(md2Model->skin_height, md2Model->skin_width) - 0.01;
+		// scaleFactorModel = initialScaleFactorModel;
+		initialScaleFactorModel = 0.1;
+		scaleFactorModel = 0.1;
 		normVertexModel = new Vector3d[md2Model->num_frames * md2Model->num_xyz];
 		computeNormVectors(md2Model, &normFaceModel, normVertexModel);
 		updateGL();
 	}
+}
+
+/**
+ * Load the chosen model texture
+ */
+void Renderer::openTextureModel() {
+	filenameTextureModel = QFileDialog::getOpenFileName(this, "Choose the texture for the model", QDir::currentPath());
+	
+	/* If the user clicked on Cancel */
+	if (filenameTextureModel.isNull()) {
+		return;
+	}
+	
+	/* Free the memory */
+	if (pixels != NULL) {
+		delete [] pixels;
+		pixels = NULL;
+	}
+	
+	/* Load the texture */
+	LoadFilePCX(filenameTextureModel.toUtf8(), &pixels, &md2Model->skin_width, &md2Model->skin_height, false);
+	
+	glEnable(GL_TEXTURE_2D);
+	
+	/* Generate the texture */
+	glGenTextures(1, &modelTexture);
+	
+	/* Enable the texture */
+	glBindTexture(GL_TEXTURE_2D, modelTexture);
+	
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	
+	/* Load texture data */
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, md2Model->skin_width, md2Model->skin_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	
+	textured = true;
+	updateGL();
 }
 
 /** @return the minimum size of the widget */
@@ -88,14 +122,35 @@ void Renderer::initializeGL() {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_NORMALIZE);
+	
+	initLights();
+}
+/** Initialize the light settings */
+void Renderer::initLights() {
+	GLfloat ambient[] = { 1.0, 1.0, 1.0, 1.0};
+	GLfloat	diffuse[] = { 1.0, 1.0, 1.0, 1.0};
+	GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
+	GLfloat position[] = { 0.5, 0.5, 0, 0.0 };
+	GLfloat mat_diffuse[] = {0.6, 0.6, 0.6, 1.0 };
+	GLfloat mat_specular[] = {1.0, 1.0, 1.0, 1.0};
+	GLfloat mat_shininess[] = {50.0};
 	
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
-	glEnable(GL_NORMALIZE);
+	
+	glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
+	glLightfv(GL_LIGHT0, GL_POSITION, position);
+	
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 }
 
 /** Draw the scene */
-void Renderer::paintGL() {	
+void Renderer::paintGL() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	/* Do nothing if no model is loaded */
@@ -104,8 +159,11 @@ void Renderer::paintGL() {
 	}
 	
 	glLoadIdentity();
+	glBindTexture(GL_TEXTURE_2D, modelTexture);
 	
 	glColor3f(1.0, 1.0, 1.0);
+	
+	gluLookAt(0, 0, -5, 0, 0, 0, 0, 1, 0);
 	
 	glPushMatrix();
 	
@@ -116,57 +174,7 @@ void Renderer::paintGL() {
 	glRotatef(zRotation, 0.0, 0.0, 1.0);
 	
 	/* Render the model */
-	if (typeRenderer == WIRED_RENDERER || typeRenderer == FLAT_RENDERER) {
-		for (int i = 0; i < md2Model->num_tris; i++) {
-			glBegin(GL_TRIANGLE_STRIP);
-			{
-				glNormal3f(normFaceModel[i].x, normFaceModel[i].y, normFaceModel[i].z);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][2]);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][2]);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][2]);
-			}
-			glEnd();
-		}
-	} else {
-		for (int i = 0; i < md2Model->num_tris; i++) {
-			glBegin(GL_TRIANGLE_STRIP);
-			{
-				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[0]].x, 
-						   normVertexModel[md2Model->tris[i].index_xyz[0]].y,
-						   normVertexModel[md2Model->tris[i].index_xyz[0]].z);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][2]);
-				
-				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[1]].x, 
-						   normVertexModel[md2Model->tris[i].index_xyz[1]].y,
-						   normVertexModel[md2Model->tris[i].index_xyz[1]].z);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][2]);
-				
-				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[2]].x, 
-						   normVertexModel[md2Model->tris[i].index_xyz[2]].y,
-						   normVertexModel[md2Model->tris[i].index_xyz[2]].z);
-				
-				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][0],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][1],
-						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][2]);
-			}
-			glEnd();
-		}
-	}
+	renderFrame(0);
 
 	glPopMatrix();
 }
@@ -184,8 +192,8 @@ void Renderer::resizeGL(int width, int height) {
 	glLoadIdentity();
 	
 	glViewport(0, 0, width, height);
-	gluPerspective(60, 1.33, -10, 10);
-
+	gluPerspective(60, (float)width / (float)height, 0.1, 10);
+	
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -255,6 +263,99 @@ Vector3d Renderer::computeMouseWorldPosition(GLfloat x, GLfloat y, GLfloat z) {
 	gluUnProject(x, y, z, modelView, projection, viewPort, &worldX, &worldY, &worldZ);
 	
 	return Vector3d(worldX, worldY, worldZ);
+}
+
+/**
+ * Render a frame of the MD2 model
+ * @param n Number of the frame to render
+ */
+void Renderer::renderFrame(int n) {
+	GLfloat s, t;
+	
+	if (typeRenderer == WIRED_RENDERER || typeRenderer == FLAT_RENDERER) {
+		for (int i = 0; i < md2Model->num_tris; i++) {
+			glBegin(GL_TRIANGLES);
+			{
+				glNormal3f(normFaceModel[i].x, normFaceModel[i].y, normFaceModel[i].z);
+				
+				if (typeRenderer == FLAT_RENDERER && textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[0]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[0]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[0] + n * md2Model->num_xyz][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0] + n * md2Model->num_xyz][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0] + n * md2Model->num_xyz][2]);
+				
+				if (typeRenderer == FLAT_RENDERER && textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[1]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[1]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[1] + n * md2Model->num_xyz][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1] + n * md2Model->num_xyz][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1] + n * md2Model->num_xyz][2]);
+				
+				if (typeRenderer == FLAT_RENDERER && textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[2]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[2]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[2] + n * md2Model->num_xyz][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2] + n * md2Model->num_xyz][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2] + n * md2Model->num_xyz][2]);
+			}
+			glEnd();
+		}
+	} else {
+		for (int i = 0; i < md2Model->num_tris; i++) {
+			glBegin(GL_TRIANGLES);
+			{
+				if (textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[0]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[0]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				
+				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[0]].x, 
+						   normVertexModel[md2Model->tris[i].index_xyz[0]].y,
+						   normVertexModel[md2Model->tris[i].index_xyz[0]].z);
+				
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[0]][2]);
+				
+				if (textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[1]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[1]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				
+				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[1]].x, 
+						   normVertexModel[md2Model->tris[i].index_xyz[1]].y,
+						   normVertexModel[md2Model->tris[i].index_xyz[1]].z);
+				
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[1]][2]);
+				
+				if (textured) {
+					s = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[2]].u / md2Model->skin_width;
+					t = (GLfloat)md2Model->texs[md2Model->tris[i].index_st[2]].v / md2Model->skin_height;
+					glTexCoord2f(s, 1 - t);
+				}
+				
+				glNormal3f(normVertexModel[md2Model->tris[i].index_xyz[2]].x, 
+						   normVertexModel[md2Model->tris[i].index_xyz[2]].y,
+						   normVertexModel[md2Model->tris[i].index_xyz[2]].z);
+				
+				glVertex3f(md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][0],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][1],
+						   md2Model->m_vertices[md2Model->tris[i].index_xyz[2]][2]);
+			}
+			glEnd();
+		}
+	}
 }
 
 /**
@@ -335,15 +436,18 @@ void Renderer::centerScene() {
 void Renderer::setTypeRenderer(int renderer) {
 	if (renderer == WIRED_RENDERER) {
 		glDisable(GL_LIGHTING);
+		glDisable(GL_TEXTURE_2D);
 		
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	} else if (renderer == FLAT_RENDERER) {
 		glEnable(GL_LIGHTING);
+		glEnable(GL_TEXTURE_2D);
 		
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glShadeModel(GL_FLAT);
 	} else {
 		glEnable(GL_LIGHTING);
+		glEnable(GL_TEXTURE_2D);
 		
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glShadeModel(GL_SMOOTH);

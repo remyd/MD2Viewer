@@ -6,3 +6,5 @@ Info.plist
 *.xcodeproj
 build/
 moc_renderer*
+Makefile
+models/
